@@ -10,7 +10,16 @@ import {
   onAuthStateChanged,
 } from "firebase/auth";
 
-import { getFirestore, doc, getDoc, setDoc } from "firebase/firestore";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  writeBatch, //一批寫入操作，用於作為單個原子單元執行多次寫入。
+  query, // 查詢
+  getDocs,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAUpm_jtPH95dryVXp0_lvUBgCHeTYb7WM",
@@ -21,7 +30,7 @@ const firebaseConfig = {
   appId: "1:1001240242470:web:baa529a673df24797ff9e7",
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
+initializeApp(firebaseConfig);
 
 // 用 Google 登入的方法
 const googleProvider = new GoogleAuthProvider();
@@ -39,6 +48,42 @@ export const signInWithGoogleRedirect = () =>
 
 export const db = getFirestore();
 
+// 上傳資料到 firebase上所需要的方法
+export const addCollectionAndDocuments = async (
+  collectionKey,
+  objectsToAdd
+) => {
+  // 跟下面的創建 user 一樣, 呼叫 db 中的哪一個 collection
+  const collectionRef = collection(db, collectionKey);
+  // 如何將這些對象作為新的資料檔並儲存在 ref 集合中
+  const batch = writeBatch(db);
+
+  // 要增加的對象
+  objectsToAdd.forEach((object) => {
+    const docRef = doc(collectionRef, object.title.toLowerCase()); // 給定要上傳至哪一個 "collection"
+    batch.set(docRef, object);
+  });
+
+  await batch.commit(); // 提交任務
+  console.log("done");
+};
+
+// 從 firebase 的 firestore 取得資料的方法
+export const getCategoriesAndDocuments = async () => {
+  const collectionRef = collection(db, "categories");
+  const q = query(collectionRef);
+
+  const querySnapshot = await getDocs(q);
+  const categoryMap = querySnapshot.docs.reduce((acc, docSnapshot) => {
+    const { title, items } = docSnapshot.data();
+    acc[title.toLowerCase()] = items;
+    return acc;
+  }, {});
+
+  return categoryMap;
+};
+
+// 創建使用者 Auth 的方法
 export const createUserDocumentFromAuth = async (
   userAuth,
   additionalInformation = {}
